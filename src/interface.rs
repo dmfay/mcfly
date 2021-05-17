@@ -14,6 +14,8 @@ use crossterm::terminal;
 use crossterm::terminal::{Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen};
 use std::io::{stdout, Write};
 use std::str::FromStr;
+use chrono::{Duration, TimeZone, Utc};
+use humantime::format_duration;
 
 pub struct Interface<'a> {
     history: &'a History,
@@ -197,13 +199,15 @@ impl<'a> Interface<'a> {
 
         for (index, command) in self.matches.iter().enumerate() {
             let mut fg = Color::from_str(&self.settings.colors.fg).unwrap();
-            let mut highlight = Color::from_str(&self.settings.colors.highlight).unwrap();
             let mut bg = Color::Reset;
+            let mut highlight = Color::from_str(&self.settings.colors.highlight).unwrap();
+            let mut timing = Color::from_str(&self.settings.colors.timing).unwrap();
 
             if index == self.selection {
                 fg = Color::from_str(&self.settings.colors.cursor_fg).unwrap();
                 bg = Color::from_str(&self.settings.colors.cursor_bg).unwrap();
                 highlight = Color::from_str(&self.settings.colors.cursor_highlight).unwrap();
+                timing = Color::from_str(&self.settings.colors.timing).unwrap();
             }
 
             let _ = queue!(screen, SetBackgroundColor(bg));
@@ -216,6 +220,7 @@ impl<'a> Interface<'a> {
                     &self.input.command,
                     width,
                     highlight,
+                    timing,
                     fg,
                     self.debug
                 ))
@@ -777,6 +782,7 @@ impl<'a> Interface<'a> {
         search: &str,
         width: u16,
         highlight_color: Color,
+        timing_color: Color,
         base_color: Color,
         debug: bool,
     ) -> String {
@@ -788,6 +794,43 @@ impl<'a> Interface<'a> {
             2
         };
         let mut out = FixedLengthGraphemeString::empty(max_grapheme_length);
+
+        if command.last_run.is_some() {
+            let duration = &format_duration(
+                Duration::seconds(
+                    Utc::now()
+                        .signed_duration_since(Utc.timestamp(command.last_run.unwrap(), 0))
+                        .num_seconds(),
+                )
+                .to_std()
+                .unwrap(),
+            )
+            .to_string()
+            .split(" ")
+            .take(2)
+            .map(|s| {
+                s.replace("years", "y")
+                    .replace("year", "y")
+                    .replace("months", "mo")
+                    .replace("month", "mo")
+                    .replace("days", "d")
+                    .replace("day", "d")
+                    .replace("hours", "h")
+                    .replace("hour", "h")
+                    .replace("minutes", "m")
+                    .replace("minute", "m")
+                    .replace("seconds", "s")
+                    .replace("second", "s")
+                    .to_string()
+            })
+            .collect::<Vec<String>>()
+            .join(" ");
+
+            out.push_str(&format!("{}", SetForegroundColor(timing_color)));
+            out.push_str(&format!("{:>8}", duration));
+            out.push_str(&format!("{}", SetForegroundColor(base_color)));
+            out.push_str(" ");
+        }
 
         if !search.is_empty() {
             for (start, end) in &command.match_bounds {
