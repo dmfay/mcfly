@@ -201,13 +201,13 @@ impl<'a> Interface<'a> {
             let mut fg = Color::from_str(&self.settings.colors.fg).unwrap();
             let mut bg = Color::Reset;
             let mut highlight = Color::from_str(&self.settings.colors.highlight).unwrap();
-            let mut timing = Color::from_str(&self.settings.colors.timing).unwrap();
+            let mut timing_color = Color::from_str(&self.settings.colors.timing).unwrap();
 
             if index == self.selection {
                 fg = Color::from_str(&self.settings.colors.cursor_fg).unwrap();
                 bg = Color::from_str(&self.settings.colors.cursor_bg).unwrap();
                 highlight = Color::from_str(&self.settings.colors.cursor_highlight).unwrap();
-                timing = Color::from_str(&self.settings.colors.timing).unwrap();
+                timing_color = Color::from_str(&self.settings.colors.timing).unwrap();
             }
 
             let _ = queue!(screen, SetBackgroundColor(bg));
@@ -220,11 +220,45 @@ impl<'a> Interface<'a> {
                     &self.input.command,
                     width,
                     highlight,
-                    timing,
                     fg,
                     self.debug
                 ))
             );
+
+            if command.last_run.is_some() {
+                let duration = &format_duration(
+                    Duration::minutes(
+                        Utc::now()
+                            .signed_duration_since(Utc.timestamp(command.last_run.unwrap(), 0))
+                            .num_minutes(),
+                    )
+                    .to_std()
+                    .unwrap(),
+                )
+                .to_string()
+                .split(" ")
+                .take(2)
+                .map(|s| {
+                    s.replace("years", "y")
+                        .replace("year", "y")
+                        .replace("months", "mo")
+                        .replace("month", "mo")
+                        .replace("days", "d")
+                        .replace("day", "d")
+                        .replace("hours", "h")
+                        .replace("hour", "h")
+                        .replace("minutes", "m")
+                        .replace("minute", "m")
+                        .replace("0s", "< 1m")
+                })
+                .collect::<Vec<String>>()
+                .join(" ");
+
+                let _ = queue!(screen, cursor::MoveTo(width - 9, index as u16 + RESULTS_TOP_INDEX));
+                let _ = queue!(screen, SetForegroundColor(timing_color));
+                let _ = queue!(screen, Print(&format!("{:>8}", duration)));
+                let _ = queue!(screen, SetForegroundColor(fg));
+            }
         }
         screen.flush().unwrap();
     }
@@ -782,54 +816,17 @@ impl<'a> Interface<'a> {
         search: &str,
         width: u16,
         highlight_color: Color,
-        timing_color: Color,
         base_color: Color,
         debug: bool,
     ) -> String {
         let mut prev: usize = 0;
         let debug_space = if debug { 90 } else { 0 };
         let max_grapheme_length = if width > debug_space {
-            width - debug_space
+            width - debug_space - 9
         } else {
-            2
+            11
         };
         let mut out = FixedLengthGraphemeString::empty(max_grapheme_length);
-
-        if command.last_run.is_some() {
-            let duration = &format_duration(
-                Duration::minutes(
-                    Utc::now()
-                        .signed_duration_since(Utc.timestamp(command.last_run.unwrap(), 0))
-                        .num_minutes(),
-                )
-                .to_std()
-                .unwrap(),
-            )
-            .to_string()
-            .split(" ")
-            .take(2)
-            .map(|s| {
-                s.replace("years", "y")
-                    .replace("year", "y")
-                    .replace("months", "mo")
-                    .replace("month", "mo")
-                    .replace("days", "d")
-                    .replace("day", "d")
-                    .replace("hours", "h")
-                    .replace("hour", "h")
-                    .replace("minutes", "m")
-                    .replace("minute", "m")
-                    .replace("0s", "< 1m")
-                    .to_string()
-            })
-            .collect::<Vec<String>>()
-            .join(" ");
-
-            out.push_str(&format!("{}", SetForegroundColor(timing_color)));
-            out.push_str(&format!("{:>8}", duration));
-            out.push_str(&format!("{}", SetForegroundColor(base_color)));
-            out.push_str(" ");
-        }
 
         if !search.is_empty() {
             for (start, end) in &command.match_bounds {
