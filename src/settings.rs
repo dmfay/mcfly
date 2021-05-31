@@ -3,13 +3,15 @@ use clap::AppSettings;
 use clap::{crate_authors, crate_version, value_t};
 use clap::{App, Arg, SubCommand};
 use dirs::home_dir;
+use figment::{Figment, providers::{Format, Toml, Serialized}};
+use serde::{Serialize, Deserialize};
 use std::env;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Mode {
     Add,
     Search,
@@ -18,20 +20,20 @@ pub enum Mode {
     Init,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum KeyScheme {
     Emacs,
     Vim,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum InitMode {
     Bash,
     Zsh,
     Fish,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum HistoryFormat {
     /// bash format - commands in plain text, one per line, with multi-line commands joined.
     /// HISTTIMEFORMAT is assumed to be empty.
@@ -49,7 +51,22 @@ pub enum HistoryFormat {
     Fish,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Colors {
+    pub menu_bg: String,
+    pub menu_fg: String,
+    pub menu_deleting_bg: String,
+    pub menu_deleting_fg: String,
+    pub bg: String,
+    pub fg: String,
+    pub prompt_fg: String,
+    pub highlight: String,
+    pub cursor_bg: String,
+    pub cursor_fg: String,
+    pub cursor_highlight: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Settings {
     pub mode: Mode,
     pub debug: bool,
@@ -71,6 +88,7 @@ pub struct Settings {
     pub limit: Option<i64>,
     pub skip_environment_check: bool,
     pub init_mode: InitMode,
+    pub colors: Colors
 }
 
 impl Default for Settings {
@@ -96,6 +114,19 @@ impl Default for Settings {
             limit: None,
             skip_environment_check: false,
             init_mode: InitMode::Bash,
+            colors: Colors {
+                menu_bg: "Blue".to_string(),
+                menu_fg: "White".to_string(),
+                menu_deleting_bg: "Red".to_string(),
+                menu_deleting_fg: "Cyan".to_string(),
+                bg: "Black".to_string(),
+                fg: "White".to_string(),
+                prompt_fg: "White".to_string(),
+                highlight: "Green".to_string(),
+                cursor_bg: "Grey".to_string(),
+                cursor_fg: "Black".to_string(),
+                cursor_highlight: "Green".to_string(),
+            },
         }
     }
 }
@@ -226,7 +257,11 @@ impl Settings {
             )
             .get_matches();
 
-        let mut settings = Settings::default();
+        let mut settings: Settings = Figment::from(Serialized::defaults(Settings::default()))
+            .merge(Toml::file(Settings::mcfly_config_path()))
+            .extract()
+            .unwrap();
+
         if matches.is_present("init") {
             settings.skip_environment_check = true;
         }
@@ -364,8 +399,7 @@ impl Settings {
                     settings.results = results;
                 }
 
-                settings.fuzzy =
-                    search_matches.is_present("fuzzy") || env::var("MCFLY_FUZZY").is_ok();
+                settings.fuzzy = settings.fuzzy || env::var("MCFLY_FUZZY").is_ok() || search_matches.is_present("fuzzy");
 
                 settings.output_selection = search_matches
                     .value_of("output_selection")
@@ -433,10 +467,13 @@ impl Settings {
             Some(_val) => true,
             None => false,
         };
-        settings.key_scheme = match env::var("MCFLY_KEY_SCHEME").as_ref().map(String::as_ref) {
-            Ok("vim") => KeyScheme::Vim,
-            _ => KeyScheme::Emacs,
-        };
+
+        if env::var("MCFLY_KEY_SCHEME").is_ok() {
+            settings.key_scheme = match env::var("MCFLY_KEY_SCHEME").as_ref().map(String::as_ref) {
+                Ok("vim") => KeyScheme::Vim,
+                _ => KeyScheme::Emacs,
+            };
+        }
 
         settings
     }
@@ -449,6 +486,10 @@ impl Settings {
         home_dir()
             .unwrap_or_else(|| panic!("McFly error: Unable to access home directory"))
             .join(PathBuf::from(".mcfly"))
+    }
+
+    pub fn mcfly_config_path() -> PathBuf {
+        Settings::storage_dir_path().join(PathBuf::from("mcfly.toml"))
     }
 
     pub fn mcfly_db_path() -> PathBuf {

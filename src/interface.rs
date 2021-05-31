@@ -7,6 +7,7 @@ use crate::history_cleaner;
 use crate::settings::KeyScheme;
 use crate::settings::Settings;
 use std::io::{stdin, stdout, Write};
+use std::str::FromStr;
 use crossterm::cursor;
 use crossterm::queue;
 use crossterm::style::{Print, Color, SetBackgroundColor, SetForegroundColor, ResetColor};
@@ -64,10 +65,17 @@ impl MenuMode {
         }
     }
 
-    fn bg(&self) -> Color {
+    fn bg(&self, interface: &Interface) -> Color {
         match *self {
-            MenuMode::Normal => Color::Blue,
-            MenuMode::ConfirmDelete => Color::DarkRed,
+            MenuMode::Normal => Color::from_str(&interface.settings.colors.menu_bg).unwrap(),
+            MenuMode::ConfirmDelete => Color::from_str(&interface.settings.colors.menu_deleting_bg).unwrap()
+        }
+    }
+
+    fn fg(&self, interface: &Interface) -> Color {
+        match *self {
+            MenuMode::Normal => Color::from_str(&interface.settings.colors.menu_fg).unwrap(),
+            MenuMode::ConfirmDelete => Color::from_str(&interface.settings.colors.menu_deleting_fg).unwrap()
         }
     }
 }
@@ -134,8 +142,8 @@ impl<'a> Interface<'a> {
         let (width, _height): (u16, u16) = terminal::size().unwrap();
 
         queue!(screen, cursor::MoveTo(0, 0));
-        queue!(screen, SetBackgroundColor(self.menu_mode.bg()));
-        queue!(screen, SetForegroundColor(Color::White));
+        queue!(screen, SetBackgroundColor(self.menu_mode.bg(self)));
+        queue!(screen, SetForegroundColor(self.menu_mode.fg(self)));
         queue!(screen, Print(format!("{text:width$}", text = self.menu_mode.text(self), width = width as usize)));
         queue!(screen, ResetColor);
 
@@ -143,7 +151,7 @@ impl<'a> Interface<'a> {
     }
 
     fn prompt<W: Write>(&self, screen: &mut W) {
-        queue!(screen, SetForegroundColor(if self.settings.lightmode {Color::Black} else {Color::White}));
+        queue!(screen, SetForegroundColor(Color::from_str(&self.settings.colors.prompt_fg).unwrap()));
         queue!(screen, cursor::MoveTo(0, PROMPT_LINE_INDEX));
         queue!(screen, Clear(ClearType::CurrentLine));
         queue!(screen, Print(format!("$ {}", self.input)));
@@ -172,30 +180,14 @@ impl<'a> Interface<'a> {
         }
 
         for (index, command) in self.matches.iter().enumerate() {
-            let mut fg = if self.settings.lightmode {
-                Color::Black
-            } else {
-                Color::White
-            };
-
-            let mut highlight = if self.settings.lightmode {
-                Color::Blue
-            } else {
-                Color::Green
-            };
-
+            let mut fg = Color::from_str(&self.settings.colors.fg).unwrap();
+            let mut highlight = Color::from_str(&self.settings.colors.highlight).unwrap();
             let mut bg = Color::Reset;
 
             if index == self.selection {
-                if self.settings.lightmode {
-                    fg = Color::White;
-                    bg = Color::DarkGrey;
-                    highlight = Color::Grey;
-                } else {
-                    fg = Color::Black;
-                    bg = Color::Grey;
-                    highlight = Color::Green;
-                }
+                fg = Color::from_str(&self.settings.colors.cursor_fg).unwrap();
+                bg = Color::from_str(&self.settings.colors.cursor_bg).unwrap();
+                highlight = Color::from_str(&self.settings.colors.cursor_highlight).unwrap();
             }
 
             queue!(screen, SetBackgroundColor(bg));
