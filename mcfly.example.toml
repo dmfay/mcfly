@@ -2,7 +2,7 @@
 
 fuzzy = true
 results = 25
-key_scheme = "vim"
+key_scheme = "Vim" # Vim or Emacs (case-sensitive)
 
 [colors]
 # Colors correspond to the ANSI colors defined for your terminal, and are
