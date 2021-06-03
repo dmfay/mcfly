@@ -6,14 +6,14 @@ use crate::history::Command;
 use crate::history_cleaner;
 use crate::settings::KeyScheme;
 use crate::settings::Settings;
-use std::io::{stdin, stdout, Write};
-use std::str::FromStr;
 use crossterm::cursor;
+use crossterm::event::{read, Event, KeyCode, KeyEvent, KeyModifiers};
 use crossterm::queue;
-use crossterm::style::{Print, Color, SetBackgroundColor, SetForegroundColor, ResetColor};
+use crossterm::style::{Color, Print, ResetColor, SetBackgroundColor, SetForegroundColor};
 use crossterm::terminal;
 use crossterm::terminal::{Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen};
-use crossterm::event::{read, Event, KeyCode, KeyEvent, KeyModifiers};
+use std::io::{stdout, Write};
+use std::str::FromStr;
 
 pub struct Interface<'a> {
     history: &'a History,
@@ -68,14 +68,18 @@ impl MenuMode {
     fn bg(&self, interface: &Interface) -> Color {
         match *self {
             MenuMode::Normal => Color::from_str(&interface.settings.colors.menu_bg).unwrap(),
-            MenuMode::ConfirmDelete => Color::from_str(&interface.settings.colors.menu_deleting_bg).unwrap()
+            MenuMode::ConfirmDelete => {
+                Color::from_str(&interface.settings.colors.menu_deleting_bg).unwrap()
+            }
         }
     }
 
     fn fg(&self, interface: &Interface) -> Color {
         match *self {
             MenuMode::Normal => Color::from_str(&interface.settings.colors.menu_fg).unwrap(),
-            MenuMode::ConfirmDelete => Color::from_str(&interface.settings.colors.menu_deleting_fg).unwrap()
+            MenuMode::ConfirmDelete => {
+                Color::from_str(&interface.settings.colors.menu_deleting_fg).unwrap()
+            }
         }
     }
 }
@@ -84,7 +88,6 @@ const PROMPT_LINE_INDEX: u16 = 2;
 const RESULTS_TOP_INDEX: u16 = 4;
 
 impl<'a> Interface<'a> {
-    #![feature(or_patterns)]
     pub fn new(settings: &'a Settings, history: &'a History) -> Interface<'a> {
         Interface {
             history,
@@ -141,37 +144,50 @@ impl<'a> Interface<'a> {
     fn menubar<W: Write>(&self, screen: &mut W) {
         let (width, _height): (u16, u16) = terminal::size().unwrap();
 
-        queue!(screen, cursor::MoveTo(0, 0));
-        queue!(screen, SetBackgroundColor(self.menu_mode.bg(self)));
-        queue!(screen, SetForegroundColor(self.menu_mode.fg(self)));
-        queue!(screen, Print(format!("{text:width$}", text = self.menu_mode.text(self), width = width as usize)));
-        queue!(screen, ResetColor);
+        let _ = queue!(screen, cursor::MoveTo(0, 0));
+        let _ = queue!(screen, SetBackgroundColor(self.menu_mode.bg(self)));
+        let _ = queue!(screen, SetForegroundColor(self.menu_mode.fg(self)));
+        let _ = queue!(
+            screen,
+            Print(format!(
+                "{text:width$}",
+                text = self.menu_mode.text(self),
+                width = width as usize
+            ))
+        );
+        let _ = queue!(screen, ResetColor);
 
         screen.flush().unwrap();
     }
 
     fn prompt<W: Write>(&self, screen: &mut W) {
-        queue!(screen, SetForegroundColor(Color::from_str(&self.settings.colors.prompt_fg).unwrap()));
-        queue!(screen, cursor::MoveTo(0, PROMPT_LINE_INDEX));
-        queue!(screen, Clear(ClearType::CurrentLine));
-        queue!(screen, Print(format!("$ {}", self.input)));
-        queue!(screen, cursor::MoveTo(self.input.cursor as u16 + 2, PROMPT_LINE_INDEX));
+        let _ = queue!(
+            screen,
+            SetForegroundColor(Color::from_str(&self.settings.colors.prompt_fg).unwrap())
+        );
+        let _ = queue!(screen, cursor::MoveTo(0, PROMPT_LINE_INDEX));
+        let _ = queue!(screen, Clear(ClearType::CurrentLine));
+        let _ = queue!(screen, Print(format!("$ {}", self.input)));
+        let _ = queue!(
+            screen,
+            cursor::MoveTo(self.input.cursor as u16 + 2, PROMPT_LINE_INDEX)
+        );
 
         if self.in_vim_insert_mode {
-            queue!(screen, cursor::EnableBlinking);
+            let _ = queue!(screen, cursor::EnableBlinking);
         } else {
-            queue!(screen, cursor::DisableBlinking);
+            let _ = queue!(screen, cursor::DisableBlinking);
         }
 
-        queue!(screen, cursor::Show);
+        let _ = queue!(screen, cursor::Show);
 
         screen.flush().unwrap();
     }
 
     fn results<W: Write>(&mut self, screen: &mut W) {
-        queue!(screen, cursor::Hide);
-        queue!(screen, cursor::MoveTo(0, RESULTS_TOP_INDEX));
-        queue!(screen, Clear(ClearType::All));
+        let _ = queue!(screen, cursor::Hide);
+        let _ = queue!(screen, cursor::MoveTo(0, RESULTS_TOP_INDEX));
+        let _ = queue!(screen, Clear(ClearType::All));
 
         let (width, _height): (u16, u16) = terminal::size().unwrap();
 
@@ -190,26 +206,29 @@ impl<'a> Interface<'a> {
                 highlight = Color::from_str(&self.settings.colors.cursor_highlight).unwrap();
             }
 
-            queue!(screen, SetBackgroundColor(bg));
-            queue!(screen, SetForegroundColor(fg));
-            queue!(screen, cursor::MoveTo(0, index as u16 + RESULTS_TOP_INDEX));
-            queue!(screen, Print(Interface::truncate_for_display(
-                        command,
-                        &self.input.command,
-                        width,
-                        highlight,
-                        fg,
-                        self.debug
-            )));
+            let _ = queue!(screen, SetBackgroundColor(bg));
+            let _ = queue!(screen, SetForegroundColor(fg));
+            let _ = queue!(screen, cursor::MoveTo(0, index as u16 + RESULTS_TOP_INDEX));
+            let _ = queue!(
+                screen,
+                Print(Interface::truncate_for_display(
+                    command,
+                    &self.input.command,
+                    width,
+                    highlight,
+                    fg,
+                    self.debug
+                ))
+            );
         }
         screen.flush().unwrap();
     }
 
     #[allow(unused)]
     fn debug<W: Write, S: Into<String>>(&self, screen: &mut W, s: S) {
-        queue!(screen, cursor::MoveTo(0, 0));
-        queue!(screen, Clear(ClearType::CurrentLine));
-        queue!(screen, Print(s.into()));
+        let _ = queue!(screen, cursor::MoveTo(0, 0));
+        let _ = queue!(screen, Clear(ClearType::CurrentLine));
+        let _ = queue!(screen, Print(s.into()));
 
         screen.flush().unwrap();
     }
@@ -263,15 +282,13 @@ impl<'a> Interface<'a> {
         );
     }
 
-    fn select(&mut self) -> crossterm::Result<()> {
-        let stdin = stdin();
-
-        terminal::enable_raw_mode();
+    fn select(&mut self) {
+        let _ = terminal::enable_raw_mode();
 
         let mut screen = stdout();
 
-        queue!(screen, EnterAlternateScreen);
-        queue!(screen, Clear(ClearType::All));
+        let _ = queue!(screen, EnterAlternateScreen);
+        let _ = queue!(screen, Clear(ClearType::All));
 
         self.refresh_matches();
         self.results(&mut screen);
@@ -279,17 +296,19 @@ impl<'a> Interface<'a> {
         self.prompt(&mut screen);
 
         loop {
-            let event = read()?;
+            let event =
+                read().unwrap_or_else(|e| panic!("McFly error: failed to read input {:?}", &e));
 
             if self.menu_mode != MenuMode::Normal {
                 match event {
                     Event::Key(KeyEvent {
                         modifiers: KeyModifiers::CONTROL,
-                        code: KeyCode::Char('c')
+                        code:
+                            KeyCode::Char('c')
                             | KeyCode::Char('d')
                             | KeyCode::Char('g')
                             | KeyCode::Char('z')
-                            | KeyCode::Char('r')
+                            | KeyCode::Char('r'),
                     }) => {
                         self.run = false;
                         self.input.clear();
@@ -301,13 +320,15 @@ impl<'a> Interface<'a> {
                     }) => {
                         self.confirm(true);
                     }
-                    Event::Key(KeyEvent {
-                        code: KeyCode::Char('n'),
-                        ..
-                    } | KeyEvent {
-                        code: KeyCode::Esc,
-                        ..
-                    }) => {
+                    Event::Key(
+                        KeyEvent {
+                            code: KeyCode::Char('n'),
+                            ..
+                        }
+                        | KeyEvent {
+                            code: KeyCode::Esc, ..
+                        },
+                    ) => {
                         self.confirm(false);
                     }
                     _ => {}
@@ -328,106 +349,141 @@ impl<'a> Interface<'a> {
             self.prompt(&mut screen);
         }
 
-        queue!(screen, Clear(ClearType::All));
-        queue!(screen, cursor::Show);
-        queue!(screen, LeaveAlternateScreen);
+        let _ = queue!(screen, Clear(ClearType::All));
+        let _ = queue!(screen, cursor::Show);
+        let _ = queue!(screen, LeaveAlternateScreen);
 
-        terminal::disable_raw_mode();
-
-        Ok(())
+        let _ = terminal::disable_raw_mode();
     }
 
     fn select_with_emacs_key_scheme(&mut self, event: Event) -> bool {
         match event {
-            Event::Key(KeyEvent {
-                modifiers: KeyModifiers::CONTROL,
-                code: KeyCode::Char('c')
-                    | KeyCode::Char('d')
-                    | KeyCode::Char('g')
-                    | KeyCode::Char('z')
-                    | KeyCode::Char('r')
-            } | KeyEvent {
-                code: KeyCode::Esc,
-                ..
-            }) => {
+            Event::Key(
+                KeyEvent {
+                    modifiers: KeyModifiers::CONTROL,
+                    code:
+                        KeyCode::Char('c')
+                        | KeyCode::Char('d')
+                        | KeyCode::Char('g')
+                        | KeyCode::Char('z')
+                        | KeyCode::Char('r'),
+                }
+                | KeyEvent {
+                    code: KeyCode::Esc, ..
+                },
+            ) => {
                 self.run = false;
                 self.input.clear();
                 return true;
             }
 
             Event::Key(KeyEvent {
-                code: KeyCode::Tab,
-                ..
+                code: KeyCode::Tab, ..
             }) => {
                 self.run = false;
                 self.accept_selection();
                 return true;
             }
 
-            Event::Key(KeyEvent {
-                code: KeyCode::Enter,
-                ..
-            } | KeyEvent {
-                modifiers: KeyModifiers::CONTROL,
-                code: KeyCode::Char('j')
-            }) => {
+            Event::Key(
+                KeyEvent {
+                    code: KeyCode::Enter,
+                    ..
+                }
+                | KeyEvent {
+                    modifiers: KeyModifiers::CONTROL,
+                    code: KeyCode::Char('j'),
+                },
+            ) => {
                 self.run = true;
                 self.accept_selection();
                 return true;
             }
 
-            Event::Key(KeyEvent {
-                modifiers: KeyModifiers::CONTROL,
-                code: KeyCode::Char('w')
-            } | KeyEvent {
-                modifiers: KeyModifiers::ALT,
-                code: KeyCode::Char('\x08') | KeyCode::Char('\x7f')
-            }) => {
+            Event::Key(
+                KeyEvent {
+                    modifiers: KeyModifiers::CONTROL,
+                    code: KeyCode::Char('w'),
+                }
+                | KeyEvent {
+                    modifiers: KeyModifiers::ALT,
+                    code: KeyCode::Char('\x08') | KeyCode::Char('\x7f'),
+                },
+            ) => {
                 self.input.delete(Move::BackwardWord);
                 self.refresh_matches();
-            },
-
-            Event::Key(KeyEvent { code: KeyCode::Left, .. }) => self.input.move_cursor(Move::Backward),
-            Event::Key(KeyEvent { code: KeyCode::Right, .. }) => self.input.move_cursor(Move::Forward),
+            }
 
             Event::Key(KeyEvent {
-                code: KeyCode::Up | KeyCode::PageUp,
+                code: KeyCode::Left,
                 ..
-            } | KeyEvent {
-                modifiers: KeyModifiers::CONTROL,
-                code: KeyCode::Char('p')
-            }) => self.move_selection(MoveSelection::Up),
-
+            }) => self.input.move_cursor(Move::Backward),
             Event::Key(KeyEvent {
-                code: KeyCode::Down | KeyCode::PageDown,
+                code: KeyCode::Right,
                 ..
-            } | KeyEvent {
-                modifiers: KeyModifiers::CONTROL,
-                code: KeyCode::Char('n')
-            }) => self.move_selection(MoveSelection::Down),
+            }) => self.input.move_cursor(Move::Forward),
 
-            Event::Key(KeyEvent {
-                code: KeyCode::Backspace,
-                ..
-            } | KeyEvent {
-                modifiers: KeyModifiers::CONTROL,
-                code: KeyCode::Char('h')
-            }) => {
+            Event::Key(
+                KeyEvent {
+                    code: KeyCode::Up | KeyCode::PageUp,
+                    ..
+                }
+                | KeyEvent {
+                    modifiers: KeyModifiers::CONTROL,
+                    code: KeyCode::Char('p'),
+                },
+            ) => self.move_selection(MoveSelection::Up),
+
+            Event::Key(
+                KeyEvent {
+                    code: KeyCode::Down | KeyCode::PageDown,
+                    ..
+                }
+                | KeyEvent {
+                    modifiers: KeyModifiers::CONTROL,
+                    code: KeyCode::Char('n'),
+                },
+            ) => self.move_selection(MoveSelection::Down),
+
+            Event::Key(
+                KeyEvent {
+                    code: KeyCode::Backspace,
+                    ..
+                }
+                | KeyEvent {
+                    modifiers: KeyModifiers::CONTROL,
+                    code: KeyCode::Char('h'),
+                },
+            ) => {
                 self.input.delete(Move::Backward);
                 self.refresh_matches();
             }
-            Event::Key(KeyEvent { code: KeyCode::Delete, .. }) => {
+            Event::Key(KeyEvent {
+                code: KeyCode::Delete,
+                ..
+            }) => {
                 self.input.delete(Move::Forward);
                 self.refresh_matches();
             }
 
-            Event::Key(KeyEvent { code: KeyCode::Home, .. }) => self.input.move_cursor(Move::BOL),
-            Event::Key(KeyEvent { code: KeyCode::End, .. }) => self.input.move_cursor(Move::EOL),
-            Event::Key(KeyEvent { code: KeyCode::Char(c), .. }) => {
+            Event::Key(KeyEvent {
+                code: KeyCode::Home,
+                ..
+            }) => self.input.move_cursor(Move::BOL),
+            Event::Key(KeyEvent {
+                code: KeyCode::End, ..
+            }) => self.input.move_cursor(Move::EOL),
+            Event::Key(KeyEvent {
+                code: KeyCode::Char(c),
+                ..
+            }) => {
                 self.input.insert(c);
                 self.refresh_matches();
             }
-            Event::Key(KeyEvent { code: KeyCode::F(2), .. }) => {
+            Event::Key(KeyEvent {
+                code: KeyCode::F(2),
+                ..
+            }) => {
                 if !self.matches.is_empty() {
                     self.menu_mode = MenuMode::ConfirmDelete;
                 }
@@ -435,40 +491,36 @@ impl<'a> Interface<'a> {
 
             Event::Key(KeyEvent {
                 modifiers: KeyModifiers::CONTROL,
-                code
-            }) => {
-                match code {
-                    KeyCode::Char('v') => self.debug = !self.debug,
-                    KeyCode::Char('b') => self.input.move_cursor(Move::Backward),
-                    KeyCode::Char('f') => self.input.move_cursor(Move::Forward),
-                    KeyCode::Char('a') => self.input.move_cursor(Move::BOL),
-                    KeyCode::Char('e') => self.input.move_cursor(Move::EOL),
-                    KeyCode::Char('k') => {
-                        self.input.delete(Move::EOL);
-                        self.refresh_matches();
-                    },
-                    KeyCode::Char('u') => {
-                        self.input.delete(Move::BOL);
-                        self.refresh_matches();
-                    },
-                    _ => {}
+                code,
+            }) => match code {
+                KeyCode::Char('v') => self.debug = !self.debug,
+                KeyCode::Char('b') => self.input.move_cursor(Move::Backward),
+                KeyCode::Char('f') => self.input.move_cursor(Move::Forward),
+                KeyCode::Char('a') => self.input.move_cursor(Move::BOL),
+                KeyCode::Char('e') => self.input.move_cursor(Move::EOL),
+                KeyCode::Char('k') => {
+                    self.input.delete(Move::EOL);
+                    self.refresh_matches();
                 }
-            }
+                KeyCode::Char('u') => {
+                    self.input.delete(Move::BOL);
+                    self.refresh_matches();
+                }
+                _ => {}
+            },
 
             Event::Key(KeyEvent {
                 modifiers: KeyModifiers::ALT,
-                code
-            }) => {
-                match code {
-                    KeyCode::Char('b') => self.input.move_cursor(Move::BackwardWord),
-                    KeyCode::Char('f') => self.input.move_cursor(Move::ForwardWord),
-                    KeyCode::Char('d') => {
-                        self.input.delete(Move::ForwardWord);
-                        self.refresh_matches();
-                    },
-                    _ => {}
+                code,
+            }) => match code {
+                KeyCode::Char('b') => self.input.move_cursor(Move::BackwardWord),
+                KeyCode::Char('f') => self.input.move_cursor(Move::ForwardWord),
+                KeyCode::Char('d') => {
+                    self.input.delete(Move::ForwardWord);
+                    self.refresh_matches();
                 }
-            }
+                _ => {}
+            },
 
             _ => {}
         }
@@ -480,21 +532,23 @@ impl<'a> Interface<'a> {
         if self.in_vim_insert_mode {
             match event {
                 Event::Key(KeyEvent {
-                    code: KeyCode::Tab,
-                    ..
+                    code: KeyCode::Tab, ..
                 }) => {
                     self.run = false;
                     self.accept_selection();
                     return true;
                 }
 
-                Event::Key(KeyEvent {
-                    code: KeyCode::Enter,
-                    ..
-                } | KeyEvent {
-                    modifiers: KeyModifiers::CONTROL,
-                    code: KeyCode::Char('j')
-                }) => {
+                Event::Key(
+                    KeyEvent {
+                        code: KeyCode::Enter,
+                        ..
+                    }
+                    | KeyEvent {
+                        modifiers: KeyModifiers::CONTROL,
+                        code: KeyCode::Char('j'),
+                    },
+                ) => {
                     self.run = true;
                     self.accept_selection();
                     return true;
@@ -502,51 +556,83 @@ impl<'a> Interface<'a> {
 
                 Event::Key(KeyEvent {
                     modifiers: KeyModifiers::CONTROL,
-                    code: KeyCode::Char('c')
+                    code:
+                        KeyCode::Char('c')
                         | KeyCode::Char('g')
                         | KeyCode::Char('z')
-                        | KeyCode::Char('r')
+                        | KeyCode::Char('r'),
                 }) => {
                     self.run = false;
                     self.input.clear();
                     return true;
                 }
 
-                Event::Key(KeyEvent { code: KeyCode::Left, .. }) => self.input.move_cursor(Move::Backward),
-                Event::Key(KeyEvent { code: KeyCode::Right, .. }) => self.input.move_cursor(Move::Forward),
+                Event::Key(KeyEvent {
+                    code: KeyCode::Left,
+                    ..
+                }) => self.input.move_cursor(Move::Backward),
+                Event::Key(KeyEvent {
+                    code: KeyCode::Right,
+                    ..
+                }) => self.input.move_cursor(Move::Forward),
+
+                Event::Key(
+                    KeyEvent {
+                        code: KeyCode::Up | KeyCode::PageUp,
+                        ..
+                    }
+                    | KeyEvent {
+                        modifiers: KeyModifiers::CONTROL,
+                        code: KeyCode::Char('u'),
+                    },
+                ) => self.move_selection(MoveSelection::Up),
+
+                Event::Key(
+                    KeyEvent {
+                        code: KeyCode::Down | KeyCode::PageDown,
+                        ..
+                    }
+                    | KeyEvent {
+                        modifiers: KeyModifiers::CONTROL,
+                        code: KeyCode::Char('d'),
+                    },
+                ) => self.move_selection(MoveSelection::Down),
 
                 Event::Key(KeyEvent {
-                    code: KeyCode::Up | KeyCode::PageUp,
-                    ..
-                } | KeyEvent {
-                    modifiers: KeyModifiers::CONTROL,
-                    code: KeyCode::Char('u')
-                }) => self.move_selection(MoveSelection::Up),
-
+                    code: KeyCode::Esc, ..
+                }) => self.in_vim_insert_mode = false,
                 Event::Key(KeyEvent {
-                    code: KeyCode::Down | KeyCode::PageDown,
+                    code: KeyCode::Backspace,
                     ..
-                } | KeyEvent {
-                    modifiers: KeyModifiers::CONTROL,
-                    code: KeyCode::Char('d')
-                }) => self.move_selection(MoveSelection::Down),
-
-                Event::Key(KeyEvent { code: KeyCode::Esc, .. }) => self.in_vim_insert_mode = false,
-                Event::Key(KeyEvent { code: KeyCode::Backspace, .. }) => {
+                }) => {
                     self.input.delete(Move::Backward);
                     self.refresh_matches();
                 }
-                Event::Key(KeyEvent { code: KeyCode::Delete, .. }) => {
+                Event::Key(KeyEvent {
+                    code: KeyCode::Delete,
+                    ..
+                }) => {
                     self.input.delete(Move::Forward);
                     self.refresh_matches();
                 }
-                Event::Key(KeyEvent { code: KeyCode::Home, .. }) => self.input.move_cursor(Move::BOL),
-                Event::Key(KeyEvent { code: KeyCode::End, .. }) => self.input.move_cursor(Move::EOL),
-                Event::Key(KeyEvent { code: KeyCode::Char(c), .. }) => {
+                Event::Key(KeyEvent {
+                    code: KeyCode::Home,
+                    ..
+                }) => self.input.move_cursor(Move::BOL),
+                Event::Key(KeyEvent {
+                    code: KeyCode::End, ..
+                }) => self.input.move_cursor(Move::EOL),
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char(c),
+                    ..
+                }) => {
                     self.input.insert(c);
                     self.refresh_matches();
                 }
-                Event::Key(KeyEvent { code: KeyCode::F(2), .. }) => {
+                Event::Key(KeyEvent {
+                    code: KeyCode::F(2),
+                    ..
+                }) => {
                     if !self.matches.is_empty() {
                         self.menu_mode = MenuMode::ConfirmDelete;
                     }
@@ -556,80 +642,125 @@ impl<'a> Interface<'a> {
         } else {
             match event {
                 Event::Key(KeyEvent {
-                    code: KeyCode::Tab,
-                    ..
+                    code: KeyCode::Tab, ..
                 }) => {
                     self.run = false;
                     self.accept_selection();
                     return true;
                 }
 
-                Event::Key(KeyEvent {
-                    code: KeyCode::Enter,
-                    ..
-                } | KeyEvent {
-                    modifiers: KeyModifiers::CONTROL,
-                    code: KeyCode::Char('j')
-                }) => {
+                Event::Key(
+                    KeyEvent {
+                        code: KeyCode::Enter,
+                        ..
+                    }
+                    | KeyEvent {
+                        modifiers: KeyModifiers::CONTROL,
+                        code: KeyCode::Char('j'),
+                    },
+                ) => {
                     self.run = true;
                     self.accept_selection();
                     return true;
                 }
 
-                Event::Key(KeyEvent {
-                    modifiers: KeyModifiers::CONTROL,
-                    code: KeyCode::Char('c')
-                        | KeyCode::Char('g')
-                        | KeyCode::Char('z')
-                        | KeyCode::Char('r')
-                        // TODO add ZZ as shortcut
-                } | KeyEvent{
-                    code: KeyCode::Esc,
-                    ..
-                }) => {
+                Event::Key(
+                    KeyEvent {
+                        modifiers: KeyModifiers::CONTROL,
+                        code:
+                            KeyCode::Char('c')
+                            | KeyCode::Char('g')
+                            | KeyCode::Char('z')
+                            | KeyCode::Char('r'), // TODO add ZZ as shortcut
+                    }
+                    | KeyEvent {
+                        code: KeyCode::Esc, ..
+                    },
+                ) => {
                     self.run = false;
                     self.input.clear();
                     return true;
                 }
 
-                Event::Key(KeyEvent { code: KeyCode::Left | KeyCode::Char('h'), .. }) => self.input.move_cursor(Move::Backward),
-                Event::Key(KeyEvent { code: KeyCode::Right | KeyCode::Char('l'), .. }) => self.input.move_cursor(Move::Forward),
+                Event::Key(KeyEvent {
+                    code: KeyCode::Left | KeyCode::Char('h'),
+                    ..
+                }) => self.input.move_cursor(Move::Backward),
+                Event::Key(KeyEvent {
+                    code: KeyCode::Right | KeyCode::Char('l'),
+                    ..
+                }) => self.input.move_cursor(Move::Forward),
+
+                Event::Key(
+                    KeyEvent {
+                        code: KeyCode::Up | KeyCode::PageUp | KeyCode::Char('k'),
+                        ..
+                    }
+                    | KeyEvent {
+                        modifiers: KeyModifiers::CONTROL,
+                        code: KeyCode::Char('u'),
+                    },
+                ) => self.move_selection(MoveSelection::Up),
+
+                Event::Key(
+                    KeyEvent {
+                        code: KeyCode::Down | KeyCode::PageDown | KeyCode::Char('j'),
+                        ..
+                    }
+                    | KeyEvent {
+                        modifiers: KeyModifiers::CONTROL,
+                        code: KeyCode::Char('d'),
+                    },
+                ) => self.move_selection(MoveSelection::Down),
 
                 Event::Key(KeyEvent {
-                    code: KeyCode::Up | KeyCode::PageUp | KeyCode::Char('k'),
+                    code: KeyCode::Char('b') | KeyCode::Char('e'),
                     ..
-                } | KeyEvent {
-                    modifiers: KeyModifiers::CONTROL,
-                    code: KeyCode::Char('u')
-                }) => self.move_selection(MoveSelection::Up),
+                }) => self.input.move_cursor(Move::BackwardWord),
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('w'),
+                    ..
+                }) => self.input.move_cursor(Move::ForwardWord),
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('0') | KeyCode::Char('^'),
+                    ..
+                }) => self.input.move_cursor(Move::BOL),
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('$'),
+                    ..
+                }) => self.input.move_cursor(Move::EOL),
 
                 Event::Key(KeyEvent {
-                    code: KeyCode::Down | KeyCode::PageDown | KeyCode::Char('j'),
+                    code: KeyCode::Char('i') | KeyCode::Char('a'),
                     ..
-                } | KeyEvent {
-                    modifiers: KeyModifiers::CONTROL,
-                    code: KeyCode::Char('d')
-                }) => self.move_selection(MoveSelection::Down),
+                }) => self.in_vim_insert_mode = true,
 
-                Event::Key(KeyEvent { code: KeyCode::Char('b') | KeyCode::Char('e'), .. }) => self.input.move_cursor(Move::BackwardWord),
-                Event::Key(KeyEvent { code: KeyCode::Char('w'), .. }) => self.input.move_cursor(Move::ForwardWord),
-                Event::Key(KeyEvent { code: KeyCode::Char('0') | KeyCode::Char('^'), .. }) => self.input.move_cursor(Move::BOL),
-                Event::Key(KeyEvent { code: KeyCode::Char('$'), .. }) => self.input.move_cursor(Move::EOL),
-
-                Event::Key(KeyEvent { code: KeyCode::Char('i') | KeyCode::Char('a'), .. }) => self.in_vim_insert_mode = true,
-
-                Event::Key(KeyEvent { code: KeyCode::Backspace, .. }) => {
+                Event::Key(KeyEvent {
+                    code: KeyCode::Backspace,
+                    ..
+                }) => {
                     self.input.delete(Move::Backward);
                     self.refresh_matches();
                 }
-                Event::Key(KeyEvent { code: KeyCode::Delete | KeyCode::Char('x'), .. }) => {
+                Event::Key(KeyEvent {
+                    code: KeyCode::Delete | KeyCode::Char('x'),
+                    ..
+                }) => {
                     self.input.delete(Move::Forward);
                     self.refresh_matches();
                 }
-                Event::Key(KeyEvent { code: KeyCode::Home, .. }) => self.input.move_cursor(Move::BOL),
-                Event::Key(KeyEvent { code: KeyCode::End, .. }) => self.input.move_cursor(Move::EOL),
+                Event::Key(KeyEvent {
+                    code: KeyCode::Home,
+                    ..
+                }) => self.input.move_cursor(Move::BOL),
+                Event::Key(KeyEvent {
+                    code: KeyCode::End, ..
+                }) => self.input.move_cursor(Move::EOL),
 
-                Event::Key(KeyEvent { code: KeyCode::F(2), .. }) => {
+                Event::Key(KeyEvent {
+                    code: KeyCode::F(2),
+                    ..
+                }) => {
                     if !self.matches.is_empty() {
                         self.menu_mode = MenuMode::ConfirmDelete;
                     }

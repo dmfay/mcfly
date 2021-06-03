@@ -3,8 +3,11 @@ use clap::AppSettings;
 use clap::{crate_authors, crate_version, value_t};
 use clap::{App, Arg, SubCommand};
 use dirs::home_dir;
-use figment::{Figment, providers::{Format, Toml, Serialized}};
-use serde::{Serialize, Deserialize};
+use figment::{
+    providers::{Format, Serialized, Toml},
+    Figment,
+};
+use serde::{Deserialize, Serialize};
 use std::env;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -87,7 +90,7 @@ pub struct Settings {
     pub limit: Option<i64>,
     pub skip_environment_check: bool,
     pub init_mode: InitMode,
-    pub colors: Colors
+    pub colors: Colors,
 }
 
 impl Default for Settings {
@@ -397,7 +400,9 @@ impl Settings {
                     settings.results = results;
                 }
 
-                settings.fuzzy = settings.fuzzy || env::var("MCFLY_FUZZY").is_ok() || search_matches.is_present("fuzzy");
+                settings.fuzzy = settings.fuzzy
+                    || env::var("MCFLY_FUZZY").is_ok()
+                    || search_matches.is_present("fuzzy");
 
                 settings.output_selection = search_matches
                     .value_of("output_selection")
