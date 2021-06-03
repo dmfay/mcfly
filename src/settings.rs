@@ -82,7 +82,6 @@ pub struct Settings {
     pub old_dir: Option<String>,
     pub append_to_histfile: bool,
     pub refresh_training_cache: bool,
-    pub lightmode: bool,
     pub key_scheme: KeyScheme,
     pub history_format: HistoryFormat,
     pub limit: Option<i64>,
@@ -108,7 +107,6 @@ impl Default for Settings {
             append_to_histfile: false,
             debug: false,
             fuzzy: false,
-            lightmode: false,
             key_scheme: KeyScheme::Emacs,
             history_format: HistoryFormat::Bash,
             limit: None,
@@ -462,11 +460,6 @@ impl Settings {
             ("", None) => println!("No subcommand was used"), // If no subcommand was used it'll match the tuple ("", None)
             _ => unreachable!(), // If all subcommands are defined above, anything else is unreachable!()
         }
-
-        settings.lightmode = match env::var_os("MCFLY_LIGHT") {
-            Some(_val) => true,
-            None => false,
-        };
 
         if env::var("MCFLY_KEY_SCHEME").is_ok() {
             settings.key_scheme = match env::var("MCFLY_KEY_SCHEME").as_ref().map(String::as_ref) {
