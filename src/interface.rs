@@ -215,14 +215,14 @@ impl<'a> Interface<'a> {
             let _ = queue!(screen, cursor::MoveTo(0, index as u16 + RESULTS_TOP_INDEX));
             let _ = queue!(
                 screen,
-                Print(Interface::truncate_for_display(
+                Print(&format!("{:width$}", Interface::truncate_for_display(
                     command,
                     &self.input.command,
                     width,
                     highlight,
                     fg,
                     self.debug
-                ))
+                ), width=(width + 10) as usize))
             );
 
             if command.last_run.is_some() {
@@ -256,7 +256,7 @@ impl<'a> Interface<'a> {
 
                 let _ = queue!(screen, cursor::MoveTo(width - 9, index as u16 + RESULTS_TOP_INDEX));
                 let _ = queue!(screen, SetForegroundColor(timing_color));
-                let _ = queue!(screen, Print(&format!("{:>8}", duration)));
+                let _ = queue!(screen, Print(&format!("{:>9}", duration)));
                 let _ = queue!(screen, SetForegroundColor(fg));
             }
         }
